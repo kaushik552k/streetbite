@@ -24,22 +24,26 @@ function timeAgo(isoString: string) {
 }
 
 import { useQuery } from '@tanstack/react-query'
+import { useAuthToken } from '../../hooks/useAuthToken'
 import { useAuth } from '@clerk/clerk-expo'
 
 export default function OrdersScreen() {
   const router = useRouter()
   const { getToken } = useAuth()
 
+  const getBearerToken = useAuthToken()
+
   const { data: response, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
+      const token = await getBearerToken()
       const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/orders`, {
-        headers: { Authorization: 'Bearer dev_bypass' }
+        headers: { Authorization: `Bearer ${token}` }
       })
       if (!res.ok) throw new Error('Failed to fetch orders')
       return res.json()
     },
-    refetchInterval: 10000, // Auto-refresh every 10 seconds
+    refetchInterval: 10000,
   })
 
   const orders = response?.data || []

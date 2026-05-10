@@ -9,8 +9,10 @@ import SignInPage from './pages/auth/SignIn'
 import SignUpPage from './pages/auth/SignUp'
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  // DEV MODE: bypass Clerk auth to test UI without a real Clerk session
-  const DEV_MODE = true
+  // DEV_MODE: controlled via VITE_DEV_MODE in apps/owner-portal/.env
+  // true  → bypass Clerk (no sign-in required, uses dev_bypass_owner token)
+  // false → require real Clerk session (for production or auth testing)
+  const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true'
   if (DEV_MODE) return <>{children}</>
 
   return (

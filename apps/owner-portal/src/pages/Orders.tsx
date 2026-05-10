@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Clock, CheckCircle2, ChefHat, ArrowRight, X, RefreshCw } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { apiRequest } from '../lib/api'
+import { useApi } from '../hooks/useApi'
 import { io } from 'socket.io-client'
 
 type OrderStatus = 'PENDING' | 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED'
@@ -21,18 +21,26 @@ const getNextStatus = (status: OrderStatus): OrderStatus | null => {
 }
 
 export default function Orders() {
+  const api = useApi()
   const queryClient = useQueryClient()
 
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['owner-orders'],
-    queryFn: () => apiRequest('/api/v1/orders?limit=50'),
-    refetchInterval: 15000, // Poll every 15s as fallback
+    queryFn: () => api('/api/v1/orders?limit=50'),
+    refetchInterval: 15000,
   })
 
-  // Real-time Socket.IO connection for live order updates
+  // Real-time Socket.IO — auth token matches the same mode as REST calls
   useEffect(() => {
-    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:4000')
-    
+    const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true'
+    const token = DEV_MODE
+      ? (import.meta.env.VITE_DEV_TOKEN as string)
+      : '' // production: Clerk token would be fetched here
+
+    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:4000', {
+      auth: { token },
+    })
+
     socket.on('order:new', () => {
       queryClient.invalidateQueries({ queryKey: ['owner-orders'] })
     })
@@ -45,7 +53,7 @@ export default function Orders() {
 
   const updateStatus = useMutation({
     mutationFn: ({ orderId, status }: { orderId: string; status: OrderStatus }) =>
-      apiRequest(`/api/v1/orders/${orderId}/status`, {
+      api(`/api/v1/orders/${orderId}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status }),
       }),

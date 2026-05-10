@@ -6,9 +6,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { io, Socket } from 'socket.io-client'
 import { Colors, Typography, Spacing, Radius, Shadow } from '../../constants/theme'
+import { useAuthToken } from '../../hooks/useAuthToken'
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000'
-const DEV_TOKEN = 'dev_bypass' // CUSTOMER role
 
 const STEPS = [
   { key: 'PENDING',    label: 'Order Placed',    emoji: '📋', desc: 'Your order has been received' },
@@ -26,47 +26,53 @@ export default function OrderTrackingScreen() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const socketRef = useRef<Socket | null>(null)
+  const getBearerToken = useAuthToken()
 
   // Fetch real order data
   const { data: response, isLoading } = useQuery({
     queryKey: ['order', id],
     queryFn: async () => {
+      const token = await getBearerToken()
       const res = await fetch(`${API_URL}/api/v1/orders/${id}`, {
-        headers: { Authorization: `Bearer ${DEV_TOKEN}` },
+        headers: { Authorization: `Bearer ${token}` },
       })
       if (!res.ok) throw new Error('Failed to fetch order')
       return res.json()
     },
-    refetchInterval: 15000, // Fallback poll every 15s
+    refetchInterval: 15000,
   })
 
   // Connect to Socket.IO and listen for real-time status updates
   useEffect(() => {
     if (!id) return
 
-    const socket = io(API_URL, {
-      auth: { token: DEV_TOKEN },
-      transports: ['websocket'],
-    })
+    let socketInstance: Socket | null = null
 
-    socketRef.current = socket
+    getBearerToken().then((token) => {
+      socketInstance = io(API_URL, {
+        auth: { token },
+        transports: ['websocket'],
+      })
 
-    socket.on('connect', () => {
-      // Join the room for this specific order
-      socket.emit('join:order', id)
-    })
+      socketRef.current = socketInstance
 
-    socket.on('order:status', (data: { status: string; estimatedMins?: number }) => {
-      // Instantly update the cached order data without a refetch
-      queryClient.setQueryData(['order', id], (old: any) => {
-        if (!old?.data) return old
-        return { ...old, data: { ...old.data, status: data.status, estimatedMins: data.estimatedMins ?? old.data.estimatedMins } }
+      socketInstance.on('connect', () => {
+        socketInstance!.emit('join:order', id)
+      })
+
+      socketInstance.on('order:status', (data: { status: string; estimatedMins?: number }) => {
+        queryClient.setQueryData(['order', id], (old: any) => {
+          if (!old?.data) return old
+          return { ...old, data: { ...old.data, status: data.status, estimatedMins: data.estimatedMins ?? old.data.estimatedMins } }
+        })
       })
     })
 
     return () => {
-      socket.emit('leave:order', id)
-      socket.disconnect()
+      if (socketRef.current) {
+        socketRef.current.emit('leave:order', id)
+        socketRef.current.disconnect()
+      }
     }
   }, [id, queryClient])
 

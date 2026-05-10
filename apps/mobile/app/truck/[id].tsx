@@ -5,7 +5,6 @@ import {
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Colors, Typography, Spacing, Radius, Shadow } from '../../constants/theme'
-import { MOCK_MENU, MOCK_TRUCKS } from '../../lib/mockData'
 import { useCartStore } from '../../store/cart'
 
 type MenuItem = {
@@ -66,17 +65,20 @@ function MenuCard({ item, truckId, truckName }: { item: MenuItem; truckId: strin
 }
 
 import { useQuery } from '@tanstack/react-query'
+import { useAuthToken } from '../../hooks/useAuthToken'
 
 export default function TruckDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
   const [activeCategory, setActiveCategory] = useState(0)
+  const getBearerToken = useAuthToken()
 
   const { data: response, isLoading } = useQuery({
     queryKey: ['truck', id],
     queryFn: async () => {
+      const token = await getBearerToken()
       const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/trucks/${id}`, {
-        headers: { Authorization: 'Bearer dev_bypass' }
+        headers: { Authorization: `Bearer ${token}` }
       })
       if (!res.ok) throw new Error('Failed to fetch truck')
       return res.json()

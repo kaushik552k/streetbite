@@ -1,14 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { Search, MoreVertical, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 import { useState } from 'react'
-import { apiRequest } from '../lib/api'
+import { useApi } from '../hooks/useApi'
 
 export default function Trucks() {
+  const api = useApi()
   const [search, setSearch] = useState('')
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-trucks'],
-    queryFn: () => apiRequest('/api/v1/admin/trucks?limit=50'),
+    queryFn: () => api('/api/v1/admin/trucks?limit=50'),
   })
 
   const trucks = (data?.data || []).filter((t: any) =>

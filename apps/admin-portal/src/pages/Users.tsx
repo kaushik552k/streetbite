@@ -1,14 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { Search, MoreVertical, Shield } from 'lucide-react'
 import { useState } from 'react'
-import { apiRequest } from '../lib/api'
+import { useApi } from '../hooks/useApi'
 
 export default function Users() {
+  const api = useApi()
   const [search, setSearch] = useState('')
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-users'],
-    queryFn: () => apiRequest('/api/v1/admin/users?limit=50'),
+    queryFn: () => api('/api/v1/admin/users?limit=50'),
   })
 
   const users = (data?.data || []).filter((u: any) =>

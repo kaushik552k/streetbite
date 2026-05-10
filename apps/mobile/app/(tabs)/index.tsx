@@ -53,6 +53,7 @@ export default function HomeScreen() {
   const router = useRouter()
   const { user } = useUser()
   const { getToken } = useAuth()
+  const getBearerToken = useAuthToken()
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [refreshing, setRefreshing] = useState(false)
 
@@ -62,8 +63,9 @@ export default function HomeScreen() {
   const { data: response, isLoading, refetch } = useQuery({
     queryKey: ['trucks'],
     queryFn: async () => {
+      const token = await getBearerToken()
       const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/trucks`, {
-        headers: { Authorization: 'Bearer dev_bypass' }
+        headers: { Authorization: `Bearer ${token}` }
       })
       if (!res.ok) throw new Error('Failed to fetch trucks')
       return res.json()

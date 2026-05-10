@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { DollarSign, ShoppingBag, Clock, TrendingUp } from 'lucide-react'
-import { apiRequest } from '../lib/api'
+import { useApi } from '../hooks/useApi'
 
 export default function Dashboard() {
+  const api = useApi()
   const { data, isLoading } = useQuery({
     queryKey: ['admin-analytics'],
-    queryFn: () => apiRequest('/api/v1/admin/analytics'),
+    queryFn: () => api('/api/v1/admin/analytics'),
   })
 
   const stats = [

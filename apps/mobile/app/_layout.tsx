@@ -43,22 +43,27 @@ function AuthGuard() {
   const segments = useSegments()
   const router = useRouter()
 
+  // DEV_MODE: controlled via EXPO_PUBLIC_DEV_MODE in apps/mobile/.env
+  // Set to 'true' to bypass Clerk for rapid local development.
+  // Set to 'false' (or remove) to require real Clerk sign-in.
+  const DEV_MODE = process.env.EXPO_PUBLIC_DEV_MODE === 'true'
+
   useEffect(() => {
     if (!isLoaded) return
-    
-    // DEV MODE: Hardcode to true to bypass auth screens
-    const MOCK_SIGNED_IN = true
 
+    const effectivelySignedIn = DEV_MODE || isSignedIn
     const inAuthGroup = segments[0] === '(auth)'
-    if (!MOCK_SIGNED_IN && !inAuthGroup) {
+
+    if (!effectivelySignedIn && !inAuthGroup) {
       router.replace('/(auth)/welcome')
-    } else if (MOCK_SIGNED_IN && inAuthGroup) {
+    } else if (effectivelySignedIn && inAuthGroup) {
       router.replace('/(tabs)')
     }
-  }, [isSignedIn, isLoaded, segments])
+  }, [isSignedIn, isLoaded, segments, DEV_MODE])
 
   return null
 }
+
 
 export default function RootLayout() {
   return (

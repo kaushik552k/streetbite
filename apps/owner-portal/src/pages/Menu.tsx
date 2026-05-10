@@ -1,20 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Pencil, Trash2, Tag, Search, Loader2 } from 'lucide-react'
 import { useState } from 'react'
-import { apiRequest } from '../lib/api'
+import { useApi } from '../hooks/useApi'
 
 export default function Menu() {
+  const api = useApi()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
 
   const { data, isLoading } = useQuery({
     queryKey: ['owner-truck'],
-    queryFn: () => apiRequest('/api/v1/trucks/owner/me'),
+    queryFn: () => api('/api/v1/trucks/owner/me'),
   })
 
   const toggleAvailability = useMutation({
     mutationFn: ({ itemId, isAvailable }: { itemId: string; isAvailable: boolean }) =>
-      apiRequest(`/api/v1/menu/items/${itemId}`, {
+      api(`/api/v1/menu/items/${itemId}`, {
         method: 'PATCH',
         body: JSON.stringify({ isAvailable }),
       }),
@@ -23,7 +24,7 @@ export default function Menu() {
 
   const deleteItem = useMutation({
     mutationFn: (itemId: string) =>
-      apiRequest(`/api/v1/menu/items/${itemId}`, { method: 'DELETE' }),
+      api(`/api/v1/menu/items/${itemId}`, { method: 'DELETE' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['owner-truck'] }),
   })
 

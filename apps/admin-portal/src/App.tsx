@@ -8,14 +8,20 @@ import SignInPage from './pages/auth/SignIn'
 import SignUpPage from './pages/auth/SignUp'
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  // DEV MODE: Mocking admin state to bypass clerk for testing UI immediately
-  const MOCK_SIGNED_IN = true
+  // DEV_MODE: controlled via VITE_DEV_MODE in apps/admin-portal/.env
+  // true  → bypass Clerk (no sign-in required, uses dev_bypass_admin token)
+  // false → require real Clerk session (for production or auth testing)
+  const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true'
+  if (DEV_MODE) return <>{children}</>
 
-  if (!MOCK_SIGNED_IN) {
-    return <Navigate to="/sign-in" replace />
-  }
-
-  return <>{children}</>
+  return (
+    <>
+      <SignedIn>{children}</SignedIn>
+      <SignedOut>
+        <Navigate to="/sign-in" replace />
+      </SignedOut>
+    </>
+  )
 }
 
 export default function App() {
