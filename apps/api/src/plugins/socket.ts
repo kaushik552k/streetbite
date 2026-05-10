@@ -9,6 +9,23 @@ export function registerSocketIO(io: Server) {
       const token = socket.handshake.auth?.token as string | undefined
       if (!token) return next(new Error('Authentication required'))
 
+      // 🔥 DEV MODE BYPASS — mirrors the HTTP auth bypass
+      if (process.env.DEV_BYPASS_TOKEN) {
+        let role: 'CUSTOMER' | 'OWNER' | 'ADMIN' | null = null
+        if (token === process.env.DEV_BYPASS_TOKEN) role = 'CUSTOMER'
+        else if (token === `${process.env.DEV_BYPASS_TOKEN}_owner`) role = 'OWNER'
+        else if (token === `${process.env.DEV_BYPASS_TOKEN}_admin`) role = 'ADMIN'
+
+        if (role) {
+          const devUser = await prisma.user.findFirst({ where: { role }, select: { id: true, role: true } })
+          if (devUser) {
+            socket.data.userId = devUser.id
+            socket.data.role = devUser.role
+            return next()
+          }
+        }
+      }
+
       const payload = await clerkClient.verifyToken(token)
       const user = await prisma.user.findUnique({
         where: { clerkId: payload.sub },

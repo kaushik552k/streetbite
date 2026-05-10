@@ -12,6 +12,54 @@ const nearbySchema = z.object({
 })
 
 export async function truckRoutes(app: FastifyInstance) {
+  const listSchema = z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+  })
+
+  // GET /trucks — list all approved trucks (no geo required, for dev)
+  app.get('/', async (request, reply) => {
+    const { page, limit } = listSchema.parse(request.query)
+    const trucks = await prisma.foodTruck.findMany({
+      where: { isApproved: true },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        cuisine: true,
+        logo: true,
+        coverImage: true,
+        isActive: true,
+        address: true,
+        lat: true,
+        lng: true,
+        createdAt: true,
+        _count: { select: { reviews: true, orders: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    })
+    return reply.send({ success: true, data: trucks, meta: { page, limit } })
+  })
+
+  // GET /trucks/owner/me — get the signed-in owner's truck
+  app.get('/owner/me', { preHandler: requireOwner }, async (request, reply) => {
+    const truck = await prisma.foodTruck.findFirst({
+      where: { ownerId: request.user!.id },
+      include: {
+        categories: {
+          orderBy: { sortOrder: 'asc' },
+          include: { items: { orderBy: { name: 'asc' } } },
+        },
+        schedules: { orderBy: { dayOfWeek: 'asc' } },
+        _count: { select: { reviews: true, orders: true } },
+      },
+    })
+    if (!truck) return reply.status(404).send({ success: false, message: 'No truck found for this owner' })
+    return reply.send({ success: true, data: truck })
+  })
+
   // GET /trucks/nearby — PostGIS geo search
   app.get('/nearby', { preHandler: requireAuth }, async (request, reply) => {
     const query = nearbySchema.safeParse(request.query)

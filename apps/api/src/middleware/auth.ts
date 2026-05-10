@@ -19,15 +19,49 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
     }
 
     const token = authHeader.slice(7)
+
+    // 🔥 DEV MODE BYPASS — Only active when DEV_BYPASS_TOKEN is set in .env
+    // Use different tokens per portal role:
+    //   dev_bypass        → CUSTOMER (mobile app)
+    //   dev_bypass_owner  → OWNER    (owner portal)
+    //   dev_bypass_admin  → ADMIN    (admin portal)
+    if (process.env.DEV_BYPASS_TOKEN) {
+      let role: 'CUSTOMER' | 'OWNER' | 'ADMIN' | null = null
+      if (token === process.env.DEV_BYPASS_TOKEN) role = 'CUSTOMER'
+      else if (token === `${process.env.DEV_BYPASS_TOKEN}_owner`) role = 'OWNER'
+      else if (token === `${process.env.DEV_BYPASS_TOKEN}_admin`) role = 'ADMIN'
+
+      if (role) {
+        const devUser = await prisma.user.findFirst({
+          where: { role },
+          select: { id: true, clerkId: true, role: true, email: true, name: true },
+        })
+        if (devUser) {
+          request.user = devUser as AuthUser
+          return
+        }
+      }
+    }
+
     const payload = await clerkClient.verifyToken(token)
 
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { clerkId: payload.sub },
       select: { id: true, clerkId: true, role: true, email: true, name: true },
     })
 
+    // Auto-provision: if Clerk JWT is valid but user not in DB yet
+    // (e.g. first login before Clerk webhook fires, or webhook missed)
     if (!user) {
-      return reply.status(401).send({ success: false, message: 'User not found. Please sign in again.' })
+      const clerkUser = await clerkClient.users.getUser(payload.sub)
+      const email = clerkUser.emailAddresses[0]?.emailAddress ?? ''
+      const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || email.split('@')[0]
+      user = await prisma.user.upsert({
+        where: { clerkId: payload.sub },
+        update: {},
+        create: { clerkId: payload.sub, email, name, role: 'CUSTOMER' },
+        select: { id: true, clerkId: true, role: true, email: true, name: true },
+      })
     }
 
     request.user = user as AuthUser
