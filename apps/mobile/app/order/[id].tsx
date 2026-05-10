@@ -1,32 +1,91 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import {
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Animated,
+  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ActivityIndicator,
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { io, Socket } from 'socket.io-client'
 import { Colors, Typography, Spacing, Radius, Shadow } from '../../constants/theme'
 
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000'
+const DEV_TOKEN = 'dev_bypass' // CUSTOMER role
+
 const STEPS = [
-  { key: 'PENDING',    label: 'Order Placed',   emoji: '📋', desc: 'Your order has been received' },
-  { key: 'CONFIRMED',  label: 'Confirmed',       emoji: '✅', desc: 'The truck has accepted your order' },
-  { key: 'PREPARING',  label: 'Preparing',       emoji: '👨‍🍳', desc: 'Your food is being prepared' },
+  { key: 'PENDING',    label: 'Order Placed',    emoji: '📋', desc: 'Your order has been received' },
+  { key: 'CONFIRMED',  label: 'Confirmed',        emoji: '✅', desc: 'The truck has accepted your order' },
+  { key: 'PREPARING',  label: 'Preparing',        emoji: '👨‍🍳', desc: 'Your food is being prepared' },
   { key: 'READY',      label: 'Ready for Pickup', emoji: '🎉', desc: 'Head over to pick up your order!' },
 ]
+
+const STATUS_TO_STEP: Record<string, number> = {
+  PENDING: 0, CONFIRMED: 1, PREPARING: 2, READY: 3, COMPLETED: 3,
+}
 
 export default function OrderTrackingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
-  const [currentStep, setCurrentStep] = useState(2) // PREPARING
-  const [minutesLeft, setMinutesLeft] = useState(8)
+  const queryClient = useQueryClient()
+  const socketRef = useRef<Socket | null>(null)
 
-  // Simulate order progressing in demo
+  // Fetch real order data
+  const { data: response, isLoading } = useQuery({
+    queryKey: ['order', id],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/api/v1/orders/${id}`, {
+        headers: { Authorization: `Bearer ${DEV_TOKEN}` },
+      })
+      if (!res.ok) throw new Error('Failed to fetch order')
+      return res.json()
+    },
+    refetchInterval: 15000, // Fallback poll every 15s
+  })
+
+  // Connect to Socket.IO and listen for real-time status updates
   useEffect(() => {
-    const timer = setInterval(() => {
-      setMinutesLeft((m) => Math.max(0, m - 1))
-    }, 60000)
-    return () => clearInterval(timer)
-  }, [])
+    if (!id) return
 
-  const activeStatus = STEPS[currentStep]
+    const socket = io(API_URL, {
+      auth: { token: DEV_TOKEN },
+      transports: ['websocket'],
+    })
+
+    socketRef.current = socket
+
+    socket.on('connect', () => {
+      // Join the room for this specific order
+      socket.emit('join:order', id)
+    })
+
+    socket.on('order:status', (data: { status: string; estimatedMins?: number }) => {
+      // Instantly update the cached order data without a refetch
+      queryClient.setQueryData(['order', id], (old: any) => {
+        if (!old?.data) return old
+        return { ...old, data: { ...old.data, status: data.status, estimatedMins: data.estimatedMins ?? old.data.estimatedMins } }
+      })
+    })
+
+    return () => {
+      socket.emit('leave:order', id)
+      socket.disconnect()
+    }
+  }, [id, queryClient])
+
+  const order = response?.data
+  const currentStatus = order?.status || 'PENDING'
+  const currentStep = STATUS_TO_STEP[currentStatus] ?? 0
+  const activeStepData = STEPS[currentStep]
+  const minutesLeft = order?.estimatedMins ?? 0
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Loading order...</Text>
+        </View>
+      </SafeAreaView>
+    )
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -42,9 +101,9 @@ export default function OrderTrackingScreen() {
       <View style={styles.content}>
         {/* Live Status Card */}
         <View style={styles.statusCard}>
-          <Text style={styles.statusEmoji}>{activeStatus.emoji}</Text>
-          <Text style={styles.statusTitle}>{activeStatus.label}</Text>
-          <Text style={styles.statusDesc}>{activeStatus.desc}</Text>
+          <Text style={styles.statusEmoji}>{activeStepData.emoji}</Text>
+          <Text style={styles.statusTitle}>{activeStepData.label}</Text>
+          <Text style={styles.statusDesc}>{activeStepData.desc}</Text>
 
           {minutesLeft > 0 && currentStep < 3 && (
             <View style={styles.etaBox}>
@@ -69,11 +128,7 @@ export default function OrderTrackingScreen() {
             return (
               <View key={step.key} style={styles.timelineRow}>
                 <View style={styles.timelineLeft}>
-                  <View style={[
-                    styles.dot,
-                    done && styles.dotDone,
-                    active && styles.dotActive,
-                  ]}>
+                  <View style={[styles.dot, done && styles.dotDone, active && styles.dotActive]}>
                     <Text style={styles.dotText}>{done ? '✓' : (index + 1).toString()}</Text>
                   </View>
                   {index < STEPS.length - 1 && (
@@ -94,7 +149,7 @@ export default function OrderTrackingScreen() {
         {/* Order ID */}
         <View style={styles.orderIdRow}>
           <Text style={styles.orderIdLabel}>Order ID</Text>
-          <Text style={styles.orderIdValue}>#{id?.toUpperCase()}</Text>
+          <Text style={styles.orderIdValue}>#{id?.slice(-6).toUpperCase()}</Text>
         </View>
 
         {/* Actions */}
@@ -118,6 +173,8 @@ export default function OrderTrackingScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  loadingText: { color: Colors.textSecondary, fontSize: Typography.sizes.md },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: Spacing.xl, paddingVertical: Spacing.lg,
