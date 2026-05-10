@@ -20,6 +20,13 @@ export function useApi() {
 
   return async function api<T = any>(path: string, options?: RequestInit): Promise<T> {
     const token = DEV_MODE ? DEV_TOKEN : (await getToken()) ?? ''
+    if (!token) {
+      throw new Error(
+        DEV_MODE
+          ? 'Missing VITE_DEV_TOKEN while VITE_DEV_MODE=true'
+          : 'Missing auth token. Please sign in again.',
+      )
+    }
     return apiRequest<T>(path, token, options)
   }
 }

@@ -10,8 +10,12 @@ export async function apiRequest<T = any>(
   token: string,
   options?: RequestInit,
 ): Promise<T> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15000)
+
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
+    signal: options?.signal ?? controller.signal,
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
@@ -19,9 +23,20 @@ export async function apiRequest<T = any>(
     },
   })
 
-  const data = await res.json()
+  clearTimeout(timeout)
+
+  const contentType = res.headers.get('content-type') || ''
+  const hasJson = contentType.includes('application/json')
+  const data = res.status === 204 ? null : hasJson ? await res.json() : await res.text()
+
   if (!res.ok) {
-    throw new Error(data.message || 'API request failed')
+    const message =
+      typeof data === 'object' && data && 'message' in data
+        ? String((data as any).message)
+        : typeof data === 'string' && data
+        ? data
+        : 'API request failed'
+    throw new Error(message)
   }
-  return data
+  return data as T
 }

@@ -28,6 +28,7 @@ export default function CheckoutScreen() {
   }
 
   const handlePlaceOrder = () => {
+    if (items.length === 0) return
     setLoading(true)
     setTimeout(() => {
       setLoading(false)
@@ -67,7 +68,7 @@ export default function CheckoutScreen() {
                     <Text style={styles.itemPrice}>${(item.price * item.quantity).toFixed(2)}</Text>
                   </View>
                   <View style={styles.qtyControl}>
-                    <TouchableOpacity style={styles.qtyBtn} onPress={() => updateQty(item.menuItemId, item.quantity - 1)}>
+                    <TouchableOpacity style={styles.qtyBtn} onPress={() => updateQty(item.menuItemId, Math.max(1, item.quantity - 1))}>
                       <Text style={styles.qtyBtnText}>−</Text>
                     </TouchableOpacity>
                     <Text style={styles.qtyCount}>{item.quantity}</Text>
@@ -150,9 +151,13 @@ export default function CheckoutScreen() {
       {/* Place Order CTA */}
       <View style={styles.footer}>
         <TouchableOpacity
-          style={[styles.orderBtn, loading && styles.orderBtnLoading]}
+          style={[
+            styles.orderBtn, 
+            loading && styles.orderBtnLoading,
+            items.length === 0 && { opacity: 0.5 }
+          ]}
           onPress={handlePlaceOrder}
-          disabled={loading}
+          disabled={loading || items.length === 0}
           activeOpacity={0.88}
         >
           {loading ? (

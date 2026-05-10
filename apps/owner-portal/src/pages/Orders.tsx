@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Clock, CheckCircle2, ChefHat, ArrowRight, X, RefreshCw } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
+import { useAuth } from '@clerk/clerk-react'
 import { useApi } from '../hooks/useApi'
 import { io } from 'socket.io-client'
 
@@ -30,26 +31,38 @@ export default function Orders() {
     refetchInterval: 15000,
   })
 
+  const { getToken } = useAuth()
+
   // Real-time Socket.IO — auth token matches the same mode as REST calls
   useEffect(() => {
-    const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true'
-    const token = DEV_MODE
-      ? (import.meta.env.VITE_DEV_TOKEN as string)
-      : '' // production: Clerk token would be fetched here
+    let socket: ReturnType<typeof io> | null = null
+    let cancelled = false
+    
+    ;(async () => {
+      const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true'
+      const token = DEV_MODE
+        ? (import.meta.env.VITE_DEV_TOKEN as string)
+        : (await getToken()) ?? ''
+        
+      if (cancelled) return
+      
+      socket = io(import.meta.env.VITE_API_URL || 'http://localhost:4000', {
+        auth: { token },
+      })
+      
+      socket.on('order:new', () => {
+        queryClient.invalidateQueries({ queryKey: ['owner-orders'] })
+      })
+      socket.on('order:status', () => {
+        queryClient.invalidateQueries({ queryKey: ['owner-orders'] })
+      })
+    })()
 
-    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:4000', {
-      auth: { token },
-    })
-
-    socket.on('order:new', () => {
-      queryClient.invalidateQueries({ queryKey: ['owner-orders'] })
-    })
-    socket.on('order:status', () => {
-      queryClient.invalidateQueries({ queryKey: ['owner-orders'] })
-    })
-
-    return () => { socket.disconnect() }
-  }, [queryClient])
+    return () => { 
+      cancelled = true
+      socket?.disconnect() 
+    }
+  }, [queryClient, getToken])
 
   const updateStatus = useMutation({
     mutationFn: ({ orderId, status }: { orderId: string; status: OrderStatus }) =>

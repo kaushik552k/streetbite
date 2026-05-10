@@ -7,14 +7,18 @@ export default function Trucks() {
   const api = useApi()
   const [search, setSearch] = useState('')
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['admin-trucks'],
     queryFn: () => api('/api/v1/admin/trucks?limit=50'),
   })
 
-  const trucks = (data?.data || []).filter((t: any) =>
-    search ? t.name.toLowerCase().includes(search.toLowerCase()) || t.id.toLowerCase().includes(search.toLowerCase()) : true
-  )
+  const searchTerm = search.toLowerCase()
+  const trucks = (data?.data ?? []).filter((t: any) => {
+    if (!searchTerm) return true
+    const name = (t?.name ?? '').toLowerCase()
+    const id = String(t?.id ?? '').toLowerCase()
+    return name.includes(searchTerm) || id.includes(searchTerm)
+  })
 
   return (
     <div className="space-y-6">
@@ -63,6 +67,12 @@ export default function Trucks() {
                     <td className="p-4" />
                   </tr>
                 ))
+              ) : isError ? (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-red-500">
+                    {(error as Error)?.message || 'Failed to load trucks.'}
+                  </td>
+                </tr>
               ) : trucks.length === 0 ? (
                 <tr><td colSpan={6} className="p-8 text-center text-gray-400">No trucks found.</td></tr>
               ) : trucks.map((truck: any) => (
@@ -92,7 +102,11 @@ export default function Trucks() {
                     {new Date(truck.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </td>
                   <td className="p-4 text-right">
-                    <button className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+                    <button
+                      type="button"
+                      aria-label={`Open actions for truck ${truck.name ?? truck.id}`}
+                      className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
                       <MoreVertical className="w-5 h-5" />
                     </button>
                   </td>

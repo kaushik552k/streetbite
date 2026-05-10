@@ -7,17 +7,18 @@ export default function Users() {
   const api = useApi()
   const [search, setSearch] = useState('')
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['admin-users'],
     queryFn: () => api('/api/v1/admin/users?limit=50'),
   })
 
-  const users = (data?.data || []).filter((u: any) =>
-    search
-      ? u.name.toLowerCase().includes(search.toLowerCase()) ||
-        u.email.toLowerCase().includes(search.toLowerCase())
-      : true
-  )
+  const searchTerm = search.toLowerCase()
+  const users = (data?.data ?? []).filter((u: any) => {
+    if (!searchTerm) return true
+    const name = (u?.name ?? '').toLowerCase()
+    const email = (u?.email ?? '').toLowerCase()
+    return name.includes(searchTerm) || email.includes(searchTerm)
+  })
 
   return (
     <div className="space-y-6">
@@ -60,6 +61,12 @@ export default function Users() {
                     <td className="p-4" />
                   </tr>
                 ))
+              ) : isError ? (
+                <tr>
+                  <td colSpan={4} className="p-8 text-center text-red-500">
+                    {(error as Error)?.message || 'Failed to load users.'}
+                  </td>
+                </tr>
               ) : users.length === 0 ? (
                 <tr><td colSpan={4} className="p-8 text-center text-gray-400">No users found.</td></tr>
               ) : users.map((user: any) => (
@@ -89,7 +96,11 @@ export default function Users() {
                     {new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </td>
                   <td className="p-4 text-right">
-                    <button className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+                    <button
+                      type="button"
+                      aria-label={`Open actions for ${user.name ?? user.email ?? 'user'}`}
+                      className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
                       <MoreVertical className="w-5 h-5" />
                     </button>
                   </td>

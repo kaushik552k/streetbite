@@ -3,6 +3,13 @@ import { Save, Store, Clock, MapPin, Image as ImageIcon } from 'lucide-react'
 
 export default function Settings() {
   const [isSaving, setIsSaving] = useState(false)
+  const [openDays, setOpenDays] = useState<boolean[]>([false, true, true, true, true, true, false])
+
+  const toggleDay = (index: number) => {
+    const newOpenDays = [...openDays]
+    newOpenDays[index] = !newOpenDays[index]
+    setOpenDays(newOpenDays)
+  }
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
@@ -103,13 +110,13 @@ export default function Settings() {
                   <div key={day} className="flex items-center justify-between sm:justify-start gap-4">
                     <span className="w-24 text-sm font-medium text-gray-700">{day}</span>
                     <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" className="sr-only peer" defaultChecked={index > 0 && index < 6} />
+                      <input type="checkbox" className="sr-only peer" checked={openDays[index]} onChange={() => toggleDay(index)} />
                       <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                     </label>
                     <div className="flex items-center gap-2 flex-1 max-w-[200px]">
-                      <input type="time" defaultValue="11:00" className="w-full text-sm px-2 py-1 rounded-md border border-gray-200" disabled={index === 0 || index === 6} />
+                      <input type="time" defaultValue="11:00" className="w-full text-sm px-2 py-1 rounded-md border border-gray-200" disabled={!openDays[index]} />
                       <span className="text-gray-400 text-sm">-</span>
-                      <input type="time" defaultValue="20:00" className="w-full text-sm px-2 py-1 rounded-md border border-gray-200" disabled={index === 0 || index === 6} />
+                      <input type="time" defaultValue="20:00" className="w-full text-sm px-2 py-1 rounded-md border border-gray-200" disabled={!openDays[index]} />
                     </div>
                   </div>
                 ))}

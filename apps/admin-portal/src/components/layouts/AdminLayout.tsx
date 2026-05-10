@@ -60,7 +60,11 @@ export default function AdminLayout() {
             {navItems.find(i => i.path === location.pathname)?.name || 'Admin Portal'}
           </h2>
           <div className="flex items-center gap-4">
-            <button className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors">
+            <button
+              type="button"
+              aria-label="Settings"
+              className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+            >
               <Settings className="w-5 h-5" />
             </button>
             <UserButton afterSignOutUrl="/sign-in" />

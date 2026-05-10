@@ -92,6 +92,22 @@ export const mockMenu: MenuItem[] = [
   },
   {
     id: '4',
+    name: 'Cola',
+    description: 'Ice-cold cola.',
+    price: 2.00,
+    category: 'Drinks',
+    isAvailable: true
+  },
+  {
+    id: '5',
+    name: 'Onion Rings',
+    description: 'Golden crispy onion rings.',
+    price: 3.50,
+    category: 'Sides',
+    isAvailable: true
+  },
+  {
+    id: '6',
     name: 'Vanilla Shake',
     description: 'Hand-spun vanilla bean ice cream.',
     price: 6.00,

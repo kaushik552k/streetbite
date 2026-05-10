@@ -56,8 +56,10 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
       const clerkUser = await clerkClient.users.getUser(payload.sub)
       const email = clerkUser.emailAddresses[0]?.emailAddress ?? ''
       const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || email.split('@')[0]
-      user = await prisma.user.create({
-        data: { clerkId: payload.sub, email, name, role: 'CUSTOMER' },
+      user = await prisma.user.upsert({
+        where: { clerkId: payload.sub },
+        update: {},
+        create: { clerkId: payload.sub, email, name, role: 'CUSTOMER' },
         select: { id: true, clerkId: true, role: true, email: true, name: true },
       })
     }
