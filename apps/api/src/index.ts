@@ -28,7 +28,13 @@ await app.register(helmet, { global: true })
 const corsOrigin =
   env.NODE_ENV === 'development'
     ? true
-    : env.CORS_ORIGINS.split(',').map((o) => o.trim())
+    : Array.from(
+        new Set(
+          env.CORS_ORIGINS.split(',')
+            .map((o) => o.trim())
+            .filter((o) => o !== '' && o !== 'true' && o !== 'false')
+        )
+      )
 
 await app.register(cors, {
   origin: corsOrigin,

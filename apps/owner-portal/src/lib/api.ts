@@ -10,20 +10,29 @@ export async function apiRequest<T = any>(
   token: string,
   options?: RequestInit,
 ): Promise<T> {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 15000)
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  let signal = options?.signal
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    signal: options?.signal ?? controller.signal,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...options?.headers,
-    },
-  })
+  if (!signal) {
+    const controller = new AbortController()
+    timeout = setTimeout(() => controller.abort(), 15000)
+    signal = controller.signal
+  }
 
-  clearTimeout(timeout)
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...options?.headers,
+      },
+    })
+  } finally {
+    if (timeout) clearTimeout(timeout)
+  }
 
   const contentType = res.headers.get('content-type') || ''
   const hasJson = contentType.includes('application/json')
