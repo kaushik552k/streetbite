@@ -24,6 +24,8 @@ function MenuCard({ item, truckId, truckName }: { item: MenuItem; truckId: strin
   const updateQty = useCartStore((s) => s.updateQty)
   const cartItem = cartItems.find((c) => c.menuItemId === item.id)
   const qty = cartItem?.quantity ?? 0
+  
+  const itemImg = item.image || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=150&q=80'
 
   return (
     <View style={styles.menuCard}>
@@ -38,11 +40,11 @@ function MenuCard({ item, truckId, truckName }: { item: MenuItem; truckId: strin
         <Text style={styles.menuPrice}>${item.price.toFixed(2)}</Text>
       </View>
       <View style={styles.menuRight}>
-        <Image source={{ uri: item.image }} style={styles.menuImg} />
+        <Image source={{ uri: itemImg }} style={styles.menuImg} />
         {qty === 0 ? (
           <TouchableOpacity
             style={[styles.addBtn, !item.isAvailable && styles.addBtnDisabled]}
-            onPress={() => addItem({ id: item.id, truckId, truckName, menuItemId: item.id, name: item.name, price: item.price, image: item.image, quantity: 1 })}
+            onPress={() => addItem({ id: item.id, truckId, truckName, menuItemId: item.id, name: item.name, price: item.price, image: itemImg, quantity: 1 })}
             disabled={!item.isAvailable}
           >
             <Text style={styles.addBtnText}>{item.isAvailable ? '+' : '—'}</Text>
@@ -63,16 +65,50 @@ function MenuCard({ item, truckId, truckName }: { item: MenuItem; truckId: strin
   )
 }
 
+import { useQuery } from '@tanstack/react-query'
+
 export default function TruckDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
   const [activeCategory, setActiveCategory] = useState(0)
 
-  const truck = MOCK_TRUCKS.find((t) => t.id === id) ?? MOCK_TRUCKS[0]
-  const menu = MOCK_MENU[id as keyof typeof MOCK_MENU] ?? MOCK_MENU['1']
+  const { data: response, isLoading } = useQuery({
+    queryKey: ['truck', id],
+    queryFn: async () => {
+      const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/trucks/${id}`, {
+        headers: { Authorization: 'Bearer dev_bypass' }
+      })
+      if (!res.ok) throw new Error('Failed to fetch truck')
+      return res.json()
+    }
+  })
 
   const itemCount = useCartStore((s) => s.itemCount())
   const total = useCartStore((s) => s.total())
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: Colors.textSecondary }}>Loading menu...</Text>
+      </View>
+    )
+  }
+
+  const truck = response?.data
+  if (!truck) {
+    return (
+      <View style={{ flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: Colors.textSecondary }}>Truck not found</Text>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
+          <Text style={{ color: Colors.primary, fontWeight: 'bold' }}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
+
+  const menu = truck.categories || []
+  const coverImg = truck.coverImage || 'https://images.unsplash.com/photo-1565123409695-7b5ef63a2efb?auto=format&fit=crop&w=800&q=80'
+  const logoImg = truck.logo || 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=150&q=80'
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
@@ -80,7 +116,7 @@ export default function TruckDetailScreen() {
       <ScrollView showsVerticalScrollIndicator={false} stickyHeaderIndices={[2]}>
         {/* Hero Image */}
         <View style={{ position: 'relative' }}>
-          <Image source={{ uri: truck.coverImage }} style={styles.hero} />
+          <Image source={{ uri: coverImg }} style={styles.hero} />
           <SafeAreaView style={styles.heroOverlay}>
             <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
               <Text style={styles.backBtnText}>‹</Text>
@@ -91,10 +127,10 @@ export default function TruckDetailScreen() {
         {/* Truck Info */}
         <View style={styles.infoBox}>
           <View style={styles.infoRow}>
-            <Image source={{ uri: truck.logo }} style={styles.truckLogo} />
+            <Image source={{ uri: logoImg }} style={styles.truckLogo} />
             <View style={{ flex: 1 }}>
               <Text style={styles.truckName}>{truck.name}</Text>
-              <Text style={styles.truckCuisine}>{truck.cuisine.join(' · ')}</Text>
+              <Text style={styles.truckCuisine}>{truck.cuisine?.join(' · ') || 'Various'}</Text>
             </View>
             <View style={[styles.statusBadge, truck.isActive ? styles.statusOpen : styles.statusClosed]}>
               <Text style={[styles.statusText, { color: truck.isActive ? Colors.success : Colors.error }]}>
@@ -106,9 +142,9 @@ export default function TruckDetailScreen() {
           <Text style={styles.truckDesc}>{truck.description}</Text>
 
           <View style={styles.metaRow}>
-            <View style={styles.metaChip}><Text style={styles.metaChipText}>⭐ {truck.rating} ({truck.reviewCount})</Text></View>
-            <View style={styles.metaChip}><Text style={styles.metaChipText}>📍 {truck.distance} mi</Text></View>
-            <View style={styles.metaChip}><Text style={styles.metaChipText}>⏱ ~{truck.estimatedMins} min</Text></View>
+            <View style={styles.metaChip}><Text style={styles.metaChipText}>⭐ 5.0 ({truck._count?.reviews || 0})</Text></View>
+            <View style={styles.metaChip}><Text style={styles.metaChipText}>📍 0.5 mi</Text></View>
+            <View style={styles.metaChip}><Text style={styles.metaChipText}>⏱ ~15 min</Text></View>
           </View>
 
           {/* Offer Banner */}

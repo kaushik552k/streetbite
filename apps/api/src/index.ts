@@ -26,7 +26,7 @@ const app = Fastify({
 await app.register(helmet, { global: true })
 
 await app.register(cors, {
-  origin: env.CORS_ORIGINS.split(','),
+  origin: true, // Dynamically accept all origins for local development across multiple frontend ports
   credentials: true,
 })
 
@@ -38,7 +38,7 @@ await app.register(rateLimit, {
 
 // ── Socket.IO ─────────────────────────────────────────────
 const io = new Server(app.server, {
-  cors: { origin: env.CORS_ORIGINS.split(','), credentials: true },
+  cors: { origin: true, credentials: true },
 })
 registerSocketIO(io)
 app.decorate('io', io)

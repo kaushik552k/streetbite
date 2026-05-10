@@ -12,6 +12,35 @@ const nearbySchema = z.object({
 })
 
 export async function truckRoutes(app: FastifyInstance) {
+  // GET /trucks — list all approved trucks (no geo required, for dev)
+  app.get('/', async (_request, reply) => {
+    const trucks = await prisma.foodTruck.findMany({
+      where: { isApproved: true },
+      include: {
+        _count: { select: { reviews: true, orders: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+    return reply.send({ success: true, data: trucks })
+  })
+
+  // GET /trucks/owner/me — get the signed-in owner's truck
+  app.get('/owner/me', { preHandler: requireOwner }, async (request, reply) => {
+    const truck = await prisma.foodTruck.findFirst({
+      where: { ownerId: request.user!.id },
+      include: {
+        categories: {
+          orderBy: { sortOrder: 'asc' },
+          include: { items: { orderBy: { name: 'asc' } } },
+        },
+        schedules: { orderBy: { dayOfWeek: 'asc' } },
+        _count: { select: { reviews: true, orders: true } },
+      },
+    })
+    if (!truck) return reply.status(404).send({ success: false, message: 'No truck found for this owner' })
+    return reply.send({ success: true, data: truck })
+  })
+
   // GET /trucks/nearby — PostGIS geo search
   app.get('/nearby', { preHandler: requireAuth }, async (request, reply) => {
     const query = nearbySchema.safeParse(request.query)

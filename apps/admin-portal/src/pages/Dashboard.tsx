@@ -1,11 +1,18 @@
+import { useQuery } from '@tanstack/react-query'
 import { TrendingUp, Truck, Users, DollarSign } from 'lucide-react'
+import { apiRequest } from '../lib/api'
 
 export default function Dashboard() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-analytics'],
+    queryFn: () => apiRequest('/api/v1/admin/analytics'),
+  })
+
   const stats = [
-    { name: 'Total Platform Revenue', value: '$124,500', change: '+24%', icon: DollarSign },
-    { name: 'Active Food Trucks', value: '48', change: '+3 this week', icon: Truck },
-    { name: 'Registered Users', value: '12,400', change: '+12%', icon: Users },
-    { name: 'Orders Processed', value: '8,430', change: '+18%', icon: TrendingUp },
+    { name: 'Total Platform Revenue', value: data?.data?.totalGMV ? `$${Number(data.data.totalGMV).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—', icon: DollarSign },
+    { name: 'Active Food Trucks', value: isLoading ? '—' : String(data?.data?.totalTrucks ?? 0), icon: Truck },
+    { name: 'Registered Users', value: isLoading ? '—' : String(data?.data?.totalUsers ?? 0), icon: Users },
+    { name: 'Orders Processed', value: isLoading ? '—' : String(data?.data?.totalOrders ?? 0), icon: TrendingUp },
   ]
 
   return (
@@ -17,14 +24,11 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat) => (
-          <div key={stat.name} className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+          <div key={stat.name} className={`bg-white rounded-2xl p-6 border border-gray-100 shadow-sm transition-opacity ${isLoading ? 'opacity-60 animate-pulse' : ''}`}>
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
                 <stat.icon className="w-6 h-6 text-blue-600" />
               </div>
-              <span className={`text-sm font-medium ${stat.change.startsWith('+') ? 'text-emerald-600' : 'text-gray-500'}`}>
-                {stat.change}
-              </span>
             </div>
             <h3 className="text-gray-500 text-sm font-medium">{stat.name}</h3>
             <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
@@ -32,31 +36,24 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Placeholder Chart Area */}
+      {/* Summary grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
         <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Revenue Trend</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Revenue Overview</h2>
           <div className="h-64 flex items-center justify-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
-            <p className="text-gray-400 font-medium">Chart Visualization Coming Soon</p>
+            <p className="text-gray-400 font-medium">Chart integration coming soon (recharts)</p>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <h2 className="text-lg font-bold text-gray-900 mb-4">Pending Approvals</h2>
-          <div className="space-y-4">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
-                <div className="flex items-center">
-                  <div className="w-10 h-10 bg-gray-200 rounded-lg mr-3"></div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">New Truck #{i}</p>
-                    <p className="text-xs text-gray-500">Applied 2h ago</p>
-                  </div>
-                </div>
-                <button className="text-xs font-bold text-blue-600 hover:text-blue-700">Review</button>
-              </div>
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="space-y-3 animate-pulse">
+              {[1,2,3].map(i => <div key={i} className="h-16 bg-gray-100 rounded-xl" />)}
+            </div>
+          ) : (
+            <p className="text-gray-400 text-sm text-center pt-8">No trucks awaiting approval</p>
+          )}
         </div>
       </div>
     </div>

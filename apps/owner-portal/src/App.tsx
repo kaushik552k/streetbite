@@ -9,8 +9,10 @@ import SignInPage from './pages/auth/SignIn'
 import SignUpPage from './pages/auth/SignUp'
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  // We use Clerk's SignedIn component to protect routes
-  // But for dev, we can also bypass it here if needed
+  // DEV MODE: bypass Clerk auth to test UI without a real Clerk session
+  const DEV_MODE = true
+  if (DEV_MODE) return <>{children}</>
+
   return (
     <>
       <SignedIn>{children}</SignedIn>

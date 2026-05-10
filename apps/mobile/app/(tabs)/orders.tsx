@@ -23,14 +23,36 @@ function timeAgo(isoString: string) {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
+import { useQuery } from '@tanstack/react-query'
+import { useAuth } from '@clerk/clerk-expo'
+
 export default function OrdersScreen() {
   const router = useRouter()
-  const activeOrders = MOCK_ORDERS.filter(o => !['COMPLETED', 'CANCELLED'].includes(o.status))
-  const pastOrders = MOCK_ORDERS.filter(o => ['COMPLETED', 'CANCELLED'].includes(o.status))
+  const { getToken } = useAuth()
 
-  const renderOrder = ({ item }: { item: typeof MOCK_ORDERS[0] }) => {
-    const sc = STATUS_CONFIG[item.status]
+  const { data: response, isLoading, refetch, isRefetching } = useQuery({
+    queryKey: ['orders'],
+    queryFn: async () => {
+      const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/orders`, {
+        headers: { Authorization: 'Bearer dev_bypass' }
+      })
+      if (!res.ok) throw new Error('Failed to fetch orders')
+      return res.json()
+    },
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
+  })
+
+  const orders = response?.data || []
+  
+  const activeOrders = orders.filter((o: any) => !['COMPLETED', 'CANCELLED'].includes(o.status))
+  const pastOrders = orders.filter((o: any) => ['COMPLETED', 'CANCELLED'].includes(o.status))
+
+  const renderOrder = ({ item }: { item: any }) => {
+    const sc = STATUS_CONFIG[item.status] || STATUS_CONFIG['PENDING']
     const isActive = !['COMPLETED', 'CANCELLED'].includes(item.status)
+    const logoImg = item.truck?.logo || 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=150&q=80'
+    const itemCount = item.items?.reduce((sum: number, i: any) => sum + i.quantity, 0) || 0
+
     return (
       <TouchableOpacity
         style={styles.card}
@@ -38,12 +60,12 @@ export default function OrdersScreen() {
         activeOpacity={0.88}
       >
         <View style={styles.cardLeft}>
-          <Image source={{ uri: item.truckLogo }} style={styles.logo} />
+          <Image source={{ uri: logoImg }} style={styles.logo} />
           {isActive && <View style={styles.activeDot} />}
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.truckName}>{item.truckName}</Text>
-          <Text style={styles.orderMeta}>{item.itemCount} items · ${item.total.toFixed(2)}</Text>
+          <Text style={styles.truckName}>{item.truck?.name || 'Unknown Truck'}</Text>
+          <Text style={styles.orderMeta}>{itemCount} items · ${item.total.toFixed(2)}</Text>
           <Text style={styles.timeAgo}>{timeAgo(item.createdAt)}</Text>
         </View>
         <View style={[styles.badge, { backgroundColor: sc.bg }]}>
@@ -60,6 +82,8 @@ export default function OrdersScreen() {
         data={[...activeOrders, ...pastOrders]}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        refreshing={isRefetching}
+        onRefresh={refetch}
         ListHeaderComponent={() => (
           <>
             <Text style={styles.header}>My Orders</Text>
@@ -78,8 +102,12 @@ export default function OrdersScreen() {
         ListEmptyComponent={() => (
           <View style={styles.empty}>
             <Text style={styles.emptyEmoji}>🛒</Text>
-            <Text style={styles.emptyTitle}>No orders yet</Text>
-            <Text style={styles.emptySub}>Find a food truck and place your first order!</Text>
+            <Text style={styles.emptyTitle}>
+              {isLoading ? 'Loading orders...' : 'No orders yet'}
+            </Text>
+            <Text style={styles.emptySub}>
+              {isLoading ? 'Please wait' : 'Find a food truck and place your first order!'}
+            </Text>
           </View>
         )}
       />

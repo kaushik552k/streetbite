@@ -8,15 +8,19 @@ import { useUser } from '@clerk/clerk-expo'
 import { Colors, Typography, Spacing, Radius, Shadow } from '../../constants/theme'
 import { MOCK_TRUCKS, CUISINE_CATEGORIES } from '../../lib/mockData'
 
-function TruckCard({ truck }: { truck: typeof MOCK_TRUCKS[0] }) {
+function TruckCard({ truck }: { truck: any }) {
   const router = useRouter()
+  // Real API gives us avgRating, distanceKm, and null images if not provided
+  const coverImg = truck.coverImage || 'https://images.unsplash.com/photo-1565123409695-7b5ef63a2efb?auto=format&fit=crop&w=800&q=80'
+  const logoImg = truck.logo || 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=150&q=80'
+  
   return (
     <TouchableOpacity
       style={styles.card}
       onPress={() => router.push(`/truck/${truck.id}`)}
       activeOpacity={0.92}
     >
-      <Image source={{ uri: truck.coverImage }} style={styles.cardImage} />
+      <Image source={{ uri: coverImg }} style={styles.cardImage} />
       {!truck.isActive && (
         <View style={styles.closedOverlay}>
           <Text style={styles.closedText}>Closed</Text>
@@ -26,39 +30,59 @@ function TruckCard({ truck }: { truck: typeof MOCK_TRUCKS[0] }) {
         <View style={styles.cardRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.cardName} numberOfLines={1}>{truck.name}</Text>
-            <Text style={styles.cardCuisine}>{truck.cuisine.join(' · ')}</Text>
+            <Text style={styles.cardCuisine}>{truck.cuisine?.join(' · ') || 'Various'}</Text>
           </View>
-          <Image source={{ uri: truck.logo }} style={styles.truckLogo} />
+          <Image source={{ uri: logoImg }} style={styles.truckLogo} />
         </View>
         <View style={styles.cardMeta}>
-          <Text style={styles.metaPill}>⭐ {truck.rating}</Text>
+          <Text style={styles.metaPill}>⭐ {truck.avgRating ? truck.avgRating.toFixed(1) : 'New'}</Text>
           <Text style={styles.metaDot}>·</Text>
-          <Text style={styles.metaText}>{truck.distance} mi</Text>
+          <Text style={styles.metaText}>{truck.distanceKm ? (truck.distanceKm * 0.621371).toFixed(1) : '0.5'} mi</Text>
           <Text style={styles.metaDot}>·</Text>
-          <Text style={styles.metaText}>~{truck.estimatedMins} min</Text>
+          <Text style={styles.metaText}>~15 min</Text>
         </View>
       </View>
     </TouchableOpacity>
   )
 }
 
+import { useQuery } from '@tanstack/react-query'
+import { useAuth } from '@clerk/clerk-expo'
+
 export default function HomeScreen() {
   const router = useRouter()
   const { user } = useUser()
+  const { getToken } = useAuth()
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [refreshing, setRefreshing] = useState(false)
 
   const firstName = user?.firstName ?? 'there'
 
+  // Fetch real trucks from the Fastify API
+  const { data: response, isLoading, refetch } = useQuery({
+    queryKey: ['trucks'],
+    queryFn: async () => {
+      const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/trucks`, {
+        headers: { Authorization: 'Bearer dev_bypass' }
+      })
+      if (!res.ok) throw new Error('Failed to fetch trucks')
+      return res.json()
+    },
+    staleTime: 1000 * 60 * 2, // 2 min
+  })
+
+  const trucks = response?.data || []
+
   const filteredTrucks = selectedCategory === 'all'
-    ? MOCK_TRUCKS
-    : MOCK_TRUCKS.filter(t =>
-        t.cuisine.some(c => c.toLowerCase().includes(selectedCategory))
+    ? trucks
+    : trucks.filter((t: any) =>
+        t.cuisine.some((c: string) => c.toLowerCase().includes(selectedCategory))
       )
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true)
-    setTimeout(() => setRefreshing(false), 1000)
+    await refetch()
+    setRefreshing(false)
   }
 
   return (

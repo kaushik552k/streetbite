@@ -19,6 +19,30 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
     }
 
     const token = authHeader.slice(7)
+
+    // 🔥 DEV MODE BYPASS — Only active when DEV_BYPASS_TOKEN is set in .env
+    // Use different tokens per portal role:
+    //   dev_bypass        → CUSTOMER (mobile app)
+    //   dev_bypass_owner  → OWNER    (owner portal)
+    //   dev_bypass_admin  → ADMIN    (admin portal)
+    if (process.env.DEV_BYPASS_TOKEN) {
+      let role: 'CUSTOMER' | 'OWNER' | 'ADMIN' | null = null
+      if (token === process.env.DEV_BYPASS_TOKEN) role = 'CUSTOMER'
+      else if (token === `${process.env.DEV_BYPASS_TOKEN}_owner`) role = 'OWNER'
+      else if (token === `${process.env.DEV_BYPASS_TOKEN}_admin`) role = 'ADMIN'
+
+      if (role) {
+        const devUser = await prisma.user.findFirst({
+          where: { role },
+          select: { id: true, clerkId: true, role: true, email: true, name: true },
+        })
+        if (devUser) {
+          request.user = devUser as AuthUser
+          return
+        }
+      }
+    }
+
     const payload = await clerkClient.verifyToken(token)
 
     const user = await prisma.user.findUnique({

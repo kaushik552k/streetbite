@@ -1,21 +1,28 @@
+import { useQuery } from '@tanstack/react-query'
 import { Search, MoreVertical, Shield } from 'lucide-react'
-
-const mockUsers = [
-  { id: 'USR-001', name: 'John Doe', email: 'john@example.com', role: 'CUSTOMER', orders: 12, joined: 'Oct 10, 2023' },
-  { id: 'USR-002', name: 'Alex Johnson', email: 'alex@burgerlab.com', role: 'OWNER', orders: 0, joined: 'Oct 12, 2023' },
-  { id: 'USR-003', name: 'Admin Account', email: 'admin@streetbite.com', role: 'ADMIN', orders: 0, joined: 'Sep 01, 2023' },
-  { id: 'USR-004', name: 'Emily Chen', email: 'emily.c@example.com', role: 'CUSTOMER', orders: 4, joined: 'Jan 05, 2024' },
-  { id: 'USR-005', name: 'Michael Brown', email: 'mbrown@example.com', role: 'CUSTOMER', orders: 1, joined: 'Last week' },
-]
+import { useState } from 'react'
+import { apiRequest } from '../lib/api'
 
 export default function Users() {
+  const [search, setSearch] = useState('')
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-users'],
+    queryFn: () => apiRequest('/api/v1/admin/users?limit=50'),
+  })
+
+  const users = (data?.data || []).filter((u: any) =>
+    search
+      ? u.name.toLowerCase().includes(search.toLowerCase()) ||
+        u.email.toLowerCase().includes(search.toLowerCase())
+      : true
+  )
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-          <p className="text-gray-500 mt-1">Manage all customers, owners, and admins.</p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
+        <p className="text-gray-500 mt-1">Manage all customers, owners, and admins.</p>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
@@ -25,6 +32,8 @@ export default function Users() {
             <input
               type="text"
               placeholder="Search users by name or email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
             />
           </div>
@@ -36,13 +45,23 @@ export default function Users() {
               <tr className="bg-gray-50 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500">
                 <th className="p-4 font-bold">User</th>
                 <th className="p-4 font-bold">Role</th>
-                <th className="p-4 font-bold">Total Orders</th>
                 <th className="p-4 font-bold">Joined</th>
                 <th className="p-4 font-bold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {mockUsers.map((user) => (
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="p-4"><div className="h-4 bg-gray-100 rounded w-40" /></td>
+                    <td className="p-4"><div className="h-6 bg-gray-100 rounded-full w-20" /></td>
+                    <td className="p-4"><div className="h-4 bg-gray-100 rounded w-24" /></td>
+                    <td className="p-4" />
+                  </tr>
+                ))
+              ) : users.length === 0 ? (
+                <tr><td colSpan={4} className="p-8 text-center text-gray-400">No users found.</td></tr>
+              ) : users.map((user: any) => (
                 <tr key={user.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="p-4">
                     <p className="font-bold text-gray-900">{user.name}</p>
@@ -65,8 +84,9 @@ export default function Users() {
                       </span>
                     )}
                   </td>
-                  <td className="p-4 text-sm font-medium text-gray-900">{user.orders}</td>
-                  <td className="p-4 text-sm text-gray-500">{user.joined}</td>
+                  <td className="p-4 text-sm text-gray-500">
+                    {new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </td>
                   <td className="p-4 text-right">
                     <button className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
                       <MoreVertical className="w-5 h-5" />
