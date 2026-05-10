@@ -1,0 +1,220 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ──────────────────────────────────────────────────
+
+enum Role {
+  CUSTOMER
+  OWNER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+enum DiscountType {
+  FLAT
+  PERCENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+// ── Models ─────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  name      String
+  email     String   @unique
+  phone     String?
+  role      Role     @default(CUSTOMER)
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  trucks         FoodTruck[]
+  orders         Order[]
+  reviews        Review[]
+  tickets        SupportTicket[]
+  ticketMessages TicketMessage[]
+}
+
+model FoodTruck {
+  id          String   @id @default(cuid())
+  ownerId     String
+  name        String
+  description String?
+  cuisine     String[]
+  logo        String?
+  coverImage  String?
+  isApproved  Boolean  @default(false)
+  isActive    Boolean  @default(false)
+  commission  Float    @default(10)
+  lat         Float?
+  lng         Float?
+  address     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner      User           @relation(fields: [ownerId], references: [id])
+  categories MenuCategory[]
+  items      MenuItem[]
+  orders     Order[]
+  schedules  TruckSchedule[]
+  offers     Offer[]
+  reviews    Review[]
+  tickets    SupportTicket[]
+}
+
+model TruckSchedule {
+  id        String @id @default(cuid())
+  truckId   String
+  dayOfWeek Int
+  openTime  String
+  closeTime String
+  lat       Float?
+  lng       Float?
+  address   String?
+
+  truck FoodTruck @relation(fields: [truckId], references: [id], onDelete: Cascade)
+}
+
+model MenuCategory {
+  id        String @id @default(cuid())
+  truckId   String
+  name      String
+  sortOrder Int    @default(0)
+
+  truck FoodTruck  @relation(fields: [truckId], references: [id], onDelete: Cascade)
+  items MenuItem[]
+}
+
+model MenuItem {
+  id          String  @id @default(cuid())
+  truckId     String
+  categoryId  String?
+  name        String
+  description String?
+  price       Float
+  image       String?
+  isVeg       Boolean @default(false)
+  isAvailable Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  truck      FoodTruck     @relation(fields: [truckId], references: [id], onDelete: Cascade)
+  category   MenuCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  orderItems OrderItem[]
+}
+
+model Order {
+  id              String        @id @default(cuid())
+  customerId      String
+  truckId         String
+  subtotal        Float
+  discount        Float         @default(0)
+  commission      Float
+  total           Float
+  status          OrderStatus   @default(PENDING)
+  paymentStatus   PaymentStatus @default(UNPAID)
+  stripePaymentId String?
+  offerId         String?
+  estimatedMins   Int?
+  note            String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  customer User       @relation(fields: [customerId], references: [id])
+  truck    FoodTruck  @relation(fields: [truckId], references: [id])
+  items    OrderItem[]
+  review   Review?
+}
+
+model OrderItem {
+  id         String  @id @default(cuid())
+  orderId    String
+  menuItemId String
+  quantity   Int
+  unitPrice  Float
+  customNote String?
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+}
+
+model Offer {
+  id            String      @id @default(cuid())
+  truckId       String
+  code          String      @unique
+  discountType  DiscountType
+  discountValue Float
+  minOrderValue Float       @default(0)
+  maxUses       Int?
+  usedCount     Int         @default(0)
+  expiresAt     DateTime?
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+
+  truck FoodTruck @relation(fields: [truckId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  customerId String
+  truckId    String
+  orderId    String   @unique
+  rating     Int
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  customer User      @relation(fields: [customerId], references: [id])
+  truck    FoodTruck @relation(fields: [truckId], references: [id])
+  order    Order     @relation(fields: [orderId], references: [id])
+}
+
+model SupportTicket {
+  id        String       @id @default(cuid())
+  userId    String
+  truckId   String?
+  subject   String
+  status    TicketStatus @default(OPEN)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  user     User            @relation(fields: [userId], references: [id])
+  truck    FoodTruck?      @relation(fields: [truckId], references: [id])
+  messages TicketMessage[]
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String
+  senderId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender User          @relation(fields: [senderId], references: [id])
+}
