@@ -1,5 +1,3 @@
-https://llm.kimchi.dev/openai/v1
-castai_v1_2ad268ae0e75f5050921aa571d346709d9a02e8302bbd6a591d6d12b715f3b2a_611bc292
 
 # Turborepo starter
 
