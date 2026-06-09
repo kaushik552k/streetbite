@@ -1,3 +1,71 @@
+systemMessage: |
+  You are an autonomous coding agent.
+
+  Your workflow:
+  1. First analyze the codebase structure
+  2. Then plan steps before coding
+  3. Then modify files step-by-step
+  4. Keep changes minimal and clean
+
+  Rules:
+  - Always explain plan briefly before coding
+  - Prefer editing existing files over creating new ones
+  - Write production-ready code
+  - Avoid unnecessary changes
+  - Assume access to project files automatically
+
+name: Local Config
+version: 1.0.0
+schema: v1
+
+models:
+  - name: Fast Chat
+    provider: ollama
+    model: phi3:mini
+    apiBase: https://api.kaushikcodes.in
+    requestOptions:
+      headers:
+        x-api-key: my-secret-key-123
+
+  - name: Code Agent
+    provider: ollama
+    model: deepseek-coder:1.3b
+    apiBase: https://api.kaushikcodes.in
+    requestOptions:
+      headers:
+        x-api-key: my-secret-key-123
+
+  - name: Kimchi Reasoning
+    provider: openai
+    model: kimi-k2.6
+    apiBase: https://llm.kimchi.dev/openai/v1
+    apiKey: YOUR_KIMCHI_API_KEY
+
+  - name: Kimchi Fast
+    provider: openai
+    model: nemotron-3-super-fp4
+    apiBase: https://llm.kimchi.dev/openai/v1
+    apiKey: YOUR_KIMCHI_API_KEY
+
+roles:
+  chat:
+    model: Kimchi Reasoning
+    options:
+      num_ctx: 4096
+      max_tokens: 1000
+
+  edit:
+    model: Kimchi Reasoning
+    options:
+      num_ctx: 8192
+      max_tokens: 2000
+
+  autocomplete:
+    model: Kimchi Fast
+    options:
+      num_ctx: 2048
+
+
 
 # Turborepo starter
 
